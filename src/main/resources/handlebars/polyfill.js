@@ -1,1 +1,1 @@
-var window = {};
+var global = {};

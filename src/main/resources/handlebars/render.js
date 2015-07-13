@@ -11,8 +11,7 @@ function renderHandlebars(template, model) {
         }
     }
     // TODO Manage compiled template cache
-    var compiledTemplate = Handlebars.compile(template);
-    return compiledTemplate(data);
+    return Handlebars.compile(template).call(this, data);
 }
 
 function renderHandlebarsWithNewGlobal(template, model) {
@@ -30,8 +29,7 @@ function renderHandlebarsWithNewGlobal(template, model) {
         "data[k] = model[k];" +
         "}" +
         "}" +
-        "var compiledTemplate = Handlebars.compile(template);" +
-        "compiledTemplate(data);"}, template, model, Handlebars);
+        "Handlebars.compile(template).call(this, data);"}, template, model, Handlebars);
 
 }
 

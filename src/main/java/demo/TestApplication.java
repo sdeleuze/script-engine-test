@@ -21,7 +21,7 @@ public class TestApplication {
         engine.eval(StreamUtils.copyToString(getClass().getClassLoader().getResourceAsStream("META-INF/resources/webjars/mustachejs/0.8.2/mustache.js"), StandardCharsets.UTF_8));
         engine.eval(StreamUtils.copyToString(getClass().getClassLoader().getResourceAsStream("mustache/render.js"), StandardCharsets.UTF_8));
         engine.eval(StreamUtils.copyToString(getClass().getClassLoader().getResourceAsStream("handlebars/polyfill.js"), StandardCharsets.UTF_8));
-        engine.eval(StreamUtils.copyToString(getClass().getClassLoader().getResourceAsStream("META-INF/resources/webjars/handlebars/3.0.0-1/handlebars.js"), StandardCharsets.UTF_8));
+        engine.eval(StreamUtils.copyToString(getClass().getClassLoader().getResourceAsStream("handlebars/handlebars-3.0.3.js"), StandardCharsets.UTF_8));
         engine.eval(StreamUtils.copyToString(getClass().getClassLoader().getResourceAsStream("handlebars/render.js"), StandardCharsets.UTF_8));
         return engine;
     }

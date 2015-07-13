@@ -23,15 +23,16 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 
 import jdk.nashorn.api.scripting.NashornScriptEngine;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -43,10 +44,12 @@ public class NashornConcurencyIssueTests {
 	public static void setup() throws IOException, ScriptException {
 		engine = (NashornScriptEngine)new ScriptEngineManager().getEngineByName("nashorn");
 		engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("META-INF/resources/webjars/mustachejs/0.8.2/mustache.js"), StandardCharsets.UTF_8));
+		engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("META-INF/resources/webjars/underscorejs/1.8.3/underscore.js"), StandardCharsets.UTF_8));
 		engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("mustache/render.js"), StandardCharsets.UTF_8));
 		engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("handlebars/polyfill.js"), StandardCharsets.UTF_8));
-		engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("META-INF/resources/webjars/handlebars/3.0.0-1/handlebars.js"), StandardCharsets.UTF_8));
+		engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("handlebars/handlebars-3.0.3.js"), StandardCharsets.UTF_8));
 		engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("handlebars/render.js"), StandardCharsets.UTF_8));
+		engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("underscore/render.js"), StandardCharsets.UTF_8));
 	}
 
 	private static String handlebarsTemplate = "<html>\n" +
@@ -75,44 +78,91 @@ public class NashornConcurencyIssueTests {
 			"    </body>\n" +
 			"</html>";
 
+	private static String underscoreTemplate = "<html>\n" +
+			"    <head>\n" +
+			"        <title><%= title %></title>\n" +
+			"    </head>\n" +
+			"    <body>\n" +
+			"        <ul>\n" +
+			"<% _.each(comments, function(c) { %>" +
+			"                <li><%= c.author %> <%= c.content %></li>\n" +
+			"<% }) %>" +
+			"        </ul>\n" +
+			"    </body>\n" +
+			"</html>";
+
+	private static String renderedTemplate = "<html>\n" +
+			"    <head>\n" +
+			"        <title>Title example</title>\n" +
+			"    </head>\n" +
+			"    <body>\n" +
+			"        <ul>\n" +
+			"                <li>author1 content1</li>\n" +
+			"                <li>author2 content2</li>\n" +
+			"                <li>author3 content3</li>\n" +
+			"        </ul>\n" +
+			"    </body>\n" +
+			"</html>";
+
 	private static NashornScriptEngine engine;
 
 	@Test
-	public void handlebarsWithNewGlobal() throws ScriptException, NoSuchMethodException, InterruptedException {
-		renderTemplatesConcurrently("renderHandlebarsWithNewGlobal", handlebarsTemplate);
+	public void mustache() throws ScriptException, NoSuchMethodException, InterruptedException, ExecutionException {
+		renderTemplates("renderMustache", mustacheTemplate, 50, 1);
 	}
 
 	@Test
-	public void handlebars() throws ScriptException, NoSuchMethodException, InterruptedException {
-		renderTemplatesConcurrently("renderHandlebars", handlebarsTemplate);
+	public void mustacheConcurrently() throws ScriptException, NoSuchMethodException, InterruptedException, ExecutionException {
+		renderTemplates("renderMustache", mustacheTemplate, 50, 2);
 	}
 
 	@Test
-	public void mustache() throws ScriptException, NoSuchMethodException, InterruptedException {
-		renderTemplatesConcurrently("renderMustache", mustacheTemplate);
+	public void handlebars() throws ScriptException, NoSuchMethodException, InterruptedException, ExecutionException {
+		renderTemplates("renderHandlebars", handlebarsTemplate, 50, 1);
 	}
 
-	private void renderTemplatesConcurrently(String functionName, String template) throws ScriptException, NoSuchMethodException, InterruptedException {
-		ExecutorService executor = Executors.newCachedThreadPool();
+	@Test
+	public void handlebarsConcurrently() throws ScriptException, NoSuchMethodException, InterruptedException, ExecutionException {
+		renderTemplates("renderHandlebars", handlebarsTemplate, 50, 2);
+	}
+
+	@Test
+	public void handlebarsConcurrentlyWithNewGlobal() throws ScriptException, NoSuchMethodException, InterruptedException, ExecutionException {
+		renderTemplates("renderHandlebarsWithNewGlobal", handlebarsTemplate, 50, 2);
+	}
+
+	@Test
+	public void underscore() throws ScriptException, NoSuchMethodException, InterruptedException, ExecutionException {
+		renderTemplates("renderUnderscore", underscoreTemplate, 50, 1);
+	}
+
+	@Test
+	public void underscoreConcurrently() throws ScriptException, NoSuchMethodException, InterruptedException, ExecutionException {
+		renderTemplates("renderUnderscore", underscoreTemplate, 50, 2);
+	}
+
+	private void renderTemplates(String functionName, String template, int iterations, int nThreads) throws ScriptException, NoSuchMethodException, InterruptedException, ExecutionException {
+		ExecutorService executor = Executors.newFixedThreadPool(nThreads);
 		List<Future<String>> results = new ArrayList<Future<String>>();
 
-		for(int i = 0; i < 50; i++) {
+		for(int i = 0; i < iterations; i++) {
 			results.add(executor.submit(() -> {
 				try {
 					return renderTemplate(functionName, template);
 				}
 				catch (ScriptException e) {
-					e.printStackTrace();
+					return e.getMessage();
 				}
 				catch (NoSuchMethodException e) {
-					e.printStackTrace();
+					return e.getMessage();
 				}
-				return null;
 			}));
 		}
 
-		executor.awaitTermination(5, TimeUnit.SECONDS);
-		executor.shutdownNow();
+		for(int i = 0; i < iterations; i++) {
+			Assert.assertEquals(renderedTemplate, results.get(i).get());
+		}
+		executor.shutdown();
 	}
 
 

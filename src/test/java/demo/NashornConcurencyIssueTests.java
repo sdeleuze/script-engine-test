@@ -33,23 +33,28 @@ import javax.script.ScriptException;
 
 import jdk.nashorn.api.scripting.NashornScriptEngine;
 import org.junit.Assert;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import org.springframework.util.StreamUtils;
 
 public class NashornConcurencyIssueTests {
 
-	@BeforeClass
-	public static void setup() throws IOException, ScriptException {
-		engine = (NashornScriptEngine)new ScriptEngineManager().getEngineByName("nashorn");
-		engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("META-INF/resources/webjars/mustachejs/0.8.2/mustache.js"), StandardCharsets.UTF_8));
-		engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("META-INF/resources/webjars/underscorejs/1.8.3/underscore.js"), StandardCharsets.UTF_8));
-		engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("mustache/render.js"), StandardCharsets.UTF_8));
-		engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("handlebars/polyfill.js"), StandardCharsets.UTF_8));
-		engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("handlebars/handlebars-3.0.3.js"), StandardCharsets.UTF_8));
-		engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("handlebars/render.js"), StandardCharsets.UTF_8));
-		engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("underscore/render.js"), StandardCharsets.UTF_8));
+	private final ThreadLocal<NashornScriptEngine> engineHolder = new ThreadLocal<>();
+
+	private NashornScriptEngine getEngine() throws IOException, ScriptException {
+		NashornScriptEngine engine = engineHolder.get();
+		if (engine == null) {
+			engine = (NashornScriptEngine)new ScriptEngineManager().getEngineByName("nashorn");
+			engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("META-INF/resources/webjars/mustachejs/0.8.2/mustache.js"), StandardCharsets.UTF_8));
+			engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("META-INF/resources/webjars/underscorejs/1.8.3/underscore.js"), StandardCharsets.UTF_8));
+			engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("mustache/render.js"), StandardCharsets.UTF_8));
+			engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("handlebars/polyfill.js"), StandardCharsets.UTF_8));
+			engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("handlebars/handlebars-3.0.3.js"), StandardCharsets.UTF_8));
+			engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("handlebars/render.js"), StandardCharsets.UTF_8));
+			engine.eval(StreamUtils.copyToString(NashornConcurencyIssueTests.class.getClassLoader().getResourceAsStream("underscore/render.js"), StandardCharsets.UTF_8));
+			engineHolder.set(engine);
+		}
+		return engine;
 	}
 
 	private static String handlebarsTemplate = "<html>\n" +
@@ -103,8 +108,6 @@ public class NashornConcurencyIssueTests {
 			"        </ul>\n" +
 			"    </body>\n" +
 			"</html>";
-
-	private static NashornScriptEngine engine;
 
 	@Test
 	public void mustache() throws ScriptException, NoSuchMethodException, InterruptedException, ExecutionException {
@@ -166,12 +169,12 @@ public class NashornConcurencyIssueTests {
 	}
 
 
-	private String renderTemplate(String functionName, String template) throws ScriptException, NoSuchMethodException {
+	private String renderTemplate(String functionName, String template) throws ScriptException, NoSuchMethodException, IOException {
 		Map<String, Object> map = new HashMap<>();
 		map.put("title", "Title example");
 		List comments = Arrays.asList(new Comment("author1", "content1"), new Comment("author2", "content2"), new Comment("author3", "content3"));
 		map.put("comments", comments);
-		return (String) engine.invokeFunction(functionName, template, map);
+		return (String) getEngine().invokeFunction(functionName, template, map);
 	}
 
 }
